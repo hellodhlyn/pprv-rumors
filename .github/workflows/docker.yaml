@@ -11,7 +11,7 @@ jobs:
       - uses: actions/checkout@v2
       - name: Build and push
         run: |
-          docker login ghcr.io --username hellodhlyn --password ${{ secrets.GH_ACCESS_TOKEN }}
+          docker login ghcr.io --username hellodhlyn --password ${{ secrets.GITHUB_TOKEN }}
 
           docker build -t ghcr.io/hellodhlyn/pprv-rumors:latest .
           docker tag ghcr.io/hellodhlyn/pprv-rumors:latest ghcr.io/hellodhlyn/pprv-rumors:${GITHUB_REF##*/}

@@ -3,9 +3,10 @@ package main
 import "time"
 
 type SubjectResponse struct {
-	ID        string     `json:"id"`
-	Title     string     `json:"title"`
-	UpdatedAt *time.Time `json:"updated_at"`
+	ID          string     `json:"id"`
+	Title       string     `json:"title"`
+	Description string     `json:"description"`
+	UpdatedAt   *time.Time `json:"updated_at"`
 }
 
 type RumorResponse struct {

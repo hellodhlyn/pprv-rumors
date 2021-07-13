@@ -47,15 +47,40 @@ func FetchSubjects(w http.ResponseWriter, r *http.Request, _ httprouter.Params) 
 			return
 		}
 
-		subjects = append(subjects, SubjectResponse{
+		subject := SubjectResponse{
 			ID:        result.ID,
 			Title:     doc.Title[0].PlainText,
 			UpdatedAt: result.LastEditedTime,
-		})
+		}
+		if len(doc.Title) == 2 {
+			subject.Description = doc.Title[1].PlainText
+		}
+		subjects = append(subjects, subject)
 	}
 
 	w.Header().Set("Content-Type", "application/json; encode=utf-8")
 	_ = json.NewEncoder(w).Encode(subjects)
+}
+
+func FetchSubject(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	doc, err := notionClient.FindDatabaseByID(r.Context(), p.ByName("id"))
+	if err != nil {
+		log.Errorf("failed to get database: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	subject := SubjectResponse{
+		ID:        doc.ID,
+		Title:     doc.Title[0].PlainText,
+		UpdatedAt: &doc.LastEditedTime,
+	}
+	if len(doc.Title) == 2 {
+		subject.Description = doc.Title[1].PlainText
+	}
+
+	w.Header().Set("Content-Type", "application/json; encode=utf-8")
+	_ = json.NewEncoder(w).Encode(subject)
 }
 
 func FetchSubjectRumors(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
@@ -111,7 +136,8 @@ func main() {
 
 	router := httprouter.New()
 	router.GET("/subjects", FetchSubjects)
-	router.GET("/subjects/:id", FetchSubjectRumors)
+	router.GET("/subjects/:id", FetchSubject)
+	router.GET("/subjects/:id/rumors", FetchSubjectRumors)
 
 	log.Fatal(http.ListenAndServe(":8080", router))
 }

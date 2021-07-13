@@ -4,10 +4,12 @@ import (
 	"encoding/json"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/Netflix/go-env"
 	"github.com/dstotijn/go-notion"
 	"github.com/julienschmidt/httprouter"
+	"github.com/patrickmn/go-cache"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -16,7 +18,6 @@ type Environment struct {
 	RootBlockID string `env:"ROOT_BLOCK_ID"`
 }
 
-var notionClient *notion.Client
 var environment Environment
 
 const (
@@ -27,7 +28,7 @@ const (
 )
 
 func FetchSubjects(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	doc, err := notionClient.FindBlockChildrenByID(r.Context(), environment.RootBlockID, nil)
+	doc, err := GetBlockChildren(r.Context(), environment.RootBlockID)
 	if err != nil {
 		log.Errorf("failed to get block children: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -40,7 +41,7 @@ func FetchSubjects(w http.ResponseWriter, r *http.Request, _ httprouter.Params) 
 			continue
 		}
 
-		doc, err := notionClient.FindDatabaseByID(r.Context(), result.ID)
+		doc, err := GetDatabase(r.Context(), result.ID)
 		if err != nil {
 			log.Errorf("failed to get database: %v", err)
 			w.WriteHeader(http.StatusInternalServerError)
@@ -63,7 +64,7 @@ func FetchSubjects(w http.ResponseWriter, r *http.Request, _ httprouter.Params) 
 }
 
 func FetchSubject(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	doc, err := notionClient.FindDatabaseByID(r.Context(), p.ByName("id"))
+	doc, err := GetDatabase(r.Context(), p.ByName("id"))
 	if err != nil {
 		log.Errorf("failed to get database: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -84,9 +85,7 @@ func FetchSubject(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 }
 
 func FetchSubjectRumors(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	query, err := notionClient.QueryDatabase(r.Context(), p.ByName("id"), &notion.DatabaseQuery{
-		Sorts: []notion.DatabaseQuerySort{{Property: "Date", Direction: notion.SortDirDesc}}},
-	)
+	query, err := QueryDatabase(r.Context(), p.ByName("id"))
 	if err != nil {
 		log.Errorf("failed to query database: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -100,7 +99,7 @@ func FetchSubjectRumors(w http.ResponseWriter, r *http.Request, p httprouter.Par
 			continue
 		}
 
-		doc, err := notionClient.FindBlockChildrenByID(r.Context(), item.ID, nil)
+		doc, err := GetBlockChildren(r.Context(), item.ID)
 		if err != nil {
 			log.Errorf("failed to get database: %v", err)
 			w.WriteHeader(http.StatusInternalServerError)
@@ -133,6 +132,7 @@ func main() {
 	}
 
 	notionClient = notion.NewClient(environment.ApiKey)
+	cacheStore = cache.New(5*time.Minute, 10*time.Minute)
 
 	router := httprouter.New()
 	router.GET("/subjects", FetchSubjects)
